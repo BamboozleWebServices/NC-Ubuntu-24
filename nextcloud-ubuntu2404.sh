@@ -750,7 +750,10 @@ quote-names
 [isamchk]
 key_buffer = 16M
 EOF
+${mkdir} -p /var/log/mysql
+${chown} -R mysql:mysql /var/log/mysql
 ${systemctl} restart mysql
+${systemctl} is-active --quiet mariadb || { ${echo} " > MariaDB failed to start - aborting. Check: journalctl -u mariadb"; exit 1; }
 mysql=$(command -v mariadb)
 ${mysql} -e "CREATE DATABASE ${NCDBNAME} CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;"
 ${mysql} -e "CREATE USER ${NCDBUSER}@localhost IDENTIFIED BY '${NCDBPASSWORD}';"
