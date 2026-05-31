@@ -480,8 +480,9 @@ echo "deb [signed-by=/usr/share/keyrings/nginx-archive-keyring.gpg] http://nginx
 ###########################
 if [ $DATABASE == "m" ]
 then
-    ${curl} -o /usr/share/keyrings/mariadb-keyring.pgp 'https://mariadb.org/mariadb_release_signing_key.pgp'
-    echo "deb [signed-by=/usr/share/keyrings/mariadb-keyring.pgp] https://mirror1.hs-esslingen.de/pub/Mirrors/mariadb/repo/10.11/ubuntu $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/mariadb.list
+    # Ubuntu 24.04 ships MariaDB 10.11 in its default repositories;
+    # no external MariaDB repo is added (third-party mirrors often lack a 'noble' suite).
+    :
 else
     ${wget}  -O- https://www.postgresql.org/media/keys/ACCC4CF8.asc | gpg --dearmor | sudo tee /usr/share/keyrings/postgresql-archive-keyring.gpg >/dev/null
     echo "deb [signed-by=/usr/share/keyrings/postgresql-archive-keyring.gpg] http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" | sudo tee /etc/apt/sources.list.d/pgdg.list      
