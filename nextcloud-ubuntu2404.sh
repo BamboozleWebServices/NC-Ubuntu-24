@@ -52,7 +52,7 @@ clear
 echo ""
 echo " +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
 echo "   Nextcloud Installer  -  interactive configuration"
-echo "   PHP 8.4 | MariaDB | OnlyOffice | Let's Encrypt  (fixed defaults)"
+echo "   PHP 8.4 | MariaDB | Let's Encrypt  (fixed defaults; no office suite)"
 echo "   Press Enter to accept [defaults]."
 echo " +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"
 echo ""
@@ -115,7 +115,7 @@ PHPVERSION="8.4"            # fixed
 DATABASE="m"                # fixed: MariaDB
 LETSENCRYPT="y"             # fixed: Let's Encrypt (needs public domain + 80/443)
 NEXTCLOUDOFFICE="n"         # fixed
-ONLYOFFICE="y"              # fixed: OnlyOffice
+ONLYOFFICE="n"              # fixed: disabled (community OnlyOffice unsupported on NC 33)
 
 NEXTCLOUDDATAPATH="/nc_data"
 NCRELEASE="latest.tar.bz2"
@@ -145,7 +145,7 @@ echo "   Admin password ....: (set)"
 echo "   PHP version .......: $PHPVERSION   (fixed)"
 echo "   Database ..........: MariaDB       (fixed)"
 echo "   TLS ...............: Let's Encrypt (fixed)"
-echo "   Office ............: OnlyOffice    (fixed)"
+echo "   Office ............: none          (fixed)"
 echo "   Timezone ..........: $CURRENTTIMEZONE  (phone region: $PHONEREGION)"
 echo "   Max upload ........: $UPLOADSIZE"
 echo "   Data path .........: $NEXTCLOUDDATAPATH"

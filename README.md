@@ -40,8 +40,8 @@ chmod +x nextcloud-ubuntu2404.sh
 
 - **PHP 8.4**
 - **MariaDB**
-- **OnlyOffice**
 - **Let's Encrypt** (auto-renewing)
+- No office suite installed (community OnlyOffice is unsupported on Nextcloud 33)
 - Data path `/nc_data`, Nextcloud `latest`, DB name/user `nextcloud`
 - DB / MariaDB-root / Redis passwords — auto-generated
 
@@ -72,7 +72,6 @@ sudo ~/update.sh
 ```
 
 Re-pull the upstream `update.sh` into your repo every so often to stay current.
-The OnlyOffice document server updates separately, via its own package/Docker channel.
 
 > Automated/unattended Nextcloud upgrades are **not** enabled by default — major
 > version jumps can break apps. Run updates manually.
