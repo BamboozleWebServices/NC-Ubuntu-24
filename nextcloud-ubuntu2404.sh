@@ -1113,42 +1113,6 @@ ${chown} -R www-data:www-data /var/www
 ###########################
 restart_all_services
 ###########################
-# Installation crowdsec   #
-###########################
-${clear}
-echo ""
-${echo} " » Crowdsec-Installation"
-${echo} ""
-sleep 2
-${curl} -s https://packagecloud.io/install/repositories/crowdsec/crowdsec/script.deb.sh | sudo bash
-if [ "$(lsb_release -r | awk '{ print $2 }')" = "24.04" ]
-then
-sed -i 's/noble/jammy/' /etc/apt/sources.list.d/crowdsec_crowdsec.list
-fi
-${apt} update
-${apt} install -y crowdsec
-${apt} install -y crowdsec-firewall-bouncer-nftables
-${systemctl} reload crowdsec.service crowdsec-firewall-bouncer.service
-${systemctl} enable crowdsec.service crowdsec-firewall-bouncer.service
-${systemctl} restart crowdsec.service crowdsec-firewall-bouncer.service
-cscli collections install crowdsecurity/nextcloud
-cscli collections install crowdsecurity/nginx
-cscli collections install crowdsecurity/sshd
-cscli parsers install crowdsecurity/geoip-enrich
-${systemctl} reload crowdsec.service crowdsec-firewall-bouncer.service
-${systemctl} restart crowdsec.service crowdsec-firewall-bouncer.service
-${cp} /etc/crowdsec/acquis.yaml /etc/crowdsec/acquis.yaml.bak
-${cat} <<EOF >>/etc/crowdsec/acquis.yaml
-#Nextcloud
-filenames:
- - /var/log/nextcloud/$NEXTCLOUDDNS.log
-labels:
-  type: Nextcloud
----
-EOF
-${systemctl} reload crowdsec.service crowdsec-firewall-bouncer.service
-${systemctl} restart crowdsec.service crowdsec-firewall-bouncer.service
-###########################
 # Installation ufw        #
 ###########################
 ${clear}
