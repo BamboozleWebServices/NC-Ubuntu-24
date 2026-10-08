@@ -600,25 +600,23 @@ ${cp} /etc/php/$PHPVERSION/mods-available/opcache.ini /etc/php/$PHPVERSION/mods-
 ${cp} /etc/php/$PHPVERSION/mods-available/apcu.ini /etc/php/$PHPVERSION/mods-available/apcu.ini.bak
 ${cp} /etc/php/$PHPVERSION/fpm/php-fpm.conf /etc/php/$PHPVERSION/fpm/php-fpm.conf.bak
 ${cp} /etc/ImageMagick-6/policy.xml /etc/ImageMagick-6/policy.xml.bak
-${sed} -i 's/pm = dynamic/pm = ondemand/' /etc/php/$PHPVERSION/fpm/pool.d/www.conf
 ${sed} -i 's/;env\[HOSTNAME\] = /env[HOSTNAME] = /' /etc/php/$PHPVERSION/fpm/pool.d/www.conf
 ${sed} -i 's/;env\[TMP\] = /env[TMP] = /' /etc/php/$PHPVERSION/fpm/pool.d/www.conf
 ${sed} -i 's/;env\[TMPDIR\] = /env[TMPDIR] = /' /etc/php/$PHPVERSION/fpm/pool.d/www.conf
 ${sed} -i 's/;env\[TEMP\] = /env[TEMP] = /' /etc/php/$PHPVERSION/fpm/pool.d/www.conf
 ${sed} -i 's/;env\[PATH\] = /env[PATH] = /' /etc/php/$PHPVERSION/fpm/pool.d/www.conf
-if [ "$AvailableRAM" -ge "4096" ];then 
-${sed} -i 's/pm.max_children =.*/pm.max_children = 200/' /etc/php/$PHPVERSION/fpm/pool.d/www.conf
-${sed} -i 's/pm.start_servers =.*/pm.start_servers = 100/' /etc/php/$PHPVERSION/fpm/pool.d/www.conf
-${sed} -i 's/pm.min_spare_servers =.*/pm.min_spare_servers = 60/' /etc/php/$PHPVERSION/fpm/pool.d/www.conf
-${sed} -i 's/pm.max_spare_servers =.*/pm.max_spare_servers = 140/' /etc/php/$PHPVERSION/fpm/pool.d/www.conf
-${sed} -i 's/;pm.max_requests =.*/pm.max_requests = 1000/' /etc/php/$PHPVERSION/fpm/pool.d/www.conf
-else
-${sed} -i 's/pm.max_children =.*/pm.max_children = 100/' /etc/php/$PHPVERSION/fpm/pool.d/www.conf
-${sed} -i 's/pm.start_servers =.*/pm.start_servers = 50/' /etc/php/$PHPVERSION/fpm/pool.d/www.conf
-${sed} -i 's/pm.min_spare_servers =.*/pm.min_spare_servers = 30/' /etc/php/$PHPVERSION/fpm/pool.d/www.conf
-${sed} -i 's/pm.max_spare_servers =.*/pm.max_spare_servers = 70/' /etc/php/$PHPVERSION/fpm/pool.d/www.conf
-${sed} -i 's/;pm.max_requests =.*/pm.max_requests = 1000/' /etc/php/$PHPVERSION/fpm/pool.d/www.conf
+# PHP-FPM sizing: ~50 MB per worker, leave room for DB, office suite and OS
+TotalRAM=$(/usr/bin/awk '/MemTotal/ {printf "%d", $2/1024}' /proc/meminfo)
+if [ "$TotalRAM" -ge "15000" ]; then FPMMAX=60; FPMSTART=10; FPMMIN=6; FPMSPARE=20; DBBUFFER=2G
+elif [ "$TotalRAM" -ge "7000" ]; then FPMMAX=30; FPMSTART=6; FPMMIN=4; FPMSPARE=10; DBBUFFER=1G
+else FPMMAX=15; FPMSTART=4; FPMMIN=2; FPMSPARE=6; DBBUFFER=512M
 fi
+${sed} -i 's/^pm = .*/pm = dynamic/' /etc/php/$PHPVERSION/fpm/pool.d/www.conf
+${sed} -i "s/pm.max_children =.*/pm.max_children = $FPMMAX/" /etc/php/$PHPVERSION/fpm/pool.d/www.conf
+${sed} -i "s/pm.start_servers =.*/pm.start_servers = $FPMSTART/" /etc/php/$PHPVERSION/fpm/pool.d/www.conf
+${sed} -i "s/pm.min_spare_servers =.*/pm.min_spare_servers = $FPMMIN/" /etc/php/$PHPVERSION/fpm/pool.d/www.conf
+${sed} -i "s/pm.max_spare_servers =.*/pm.max_spare_servers = $FPMSPARE/" /etc/php/$PHPVERSION/fpm/pool.d/www.conf
+${sed} -i 's/;pm.max_requests =.*/pm.max_requests = 500/' /etc/php/$PHPVERSION/fpm/pool.d/www.conf
 ${sed} -i 's/output_buffering =.*/output_buffering = Off/' /etc/php/$PHPVERSION/cli/php.ini
 ${sed} -i 's/max_execution_time =.*/max_execution_time = 3600/' /etc/php/$PHPVERSION/cli/php.ini
 ${sed} -i 's/max_input_time =.*/max_input_time = 3600/' /etc/php/$PHPVERSION/cli/php.ini
@@ -708,16 +706,15 @@ datadir = /var/lib/mysql
 default_storage_engine = InnoDB
 expire_logs_days = 2
 general_log_file = /var/log/mysql/mysql.log
-innodb_buffer_pool_size = 2G
+innodb_buffer_pool_size = $DBBUFFER
 innodb_log_buffer_size = 32M
 innodb_log_file_size = 512M
 innodb_read_only_compressed=OFF
 join_buffer_size = 2M
-key_buffer_size = 512M
+key_buffer_size = 32M
 lc_messages_dir = /usr/share/mysql
 lc_messages = en_US
-log_bin = /var/log/mysql/mariadb-bin
-log_bin_index = /var/log/mysql/mariadb-bin.index
+skip-log-bin
 log_bin_trust_function_creators = true
 log_error = /var/log/mysql/mysql_error.log
 log_slow_verbosity = query_plan
