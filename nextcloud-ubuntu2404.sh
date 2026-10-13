@@ -107,6 +107,11 @@ echo ""
 read -rp " » Max upload size [10G]: " UPLOADSIZE
 UPLOADSIZE="${UPLOADSIZE:-10G}"
 
+# --- Euro-Office ---
+echo ""
+read -rp " » Install Euro-Office document editing (Docker, needs ~2 GB RAM)? [Y/n]: " EUROOFFICE
+case "${EUROOFFICE,,}" in n|no) EUROOFFICE="n" ;; *) EUROOFFICE="y" ;; esac
+
 #################################################################
 # Fixed defaults - not prompted on purpose.                     #
 # Edit any of these here to change the baked-in behaviour.      #
@@ -145,7 +150,11 @@ echo "   Admin password ....: (set)"
 echo "   PHP version .......: $PHPVERSION   (fixed)"
 echo "   Database ..........: MariaDB       (fixed)"
 echo "   TLS ...............: Let's Encrypt (fixed)"
-echo "   Office ............: none          (fixed)"
+if [ "$EUROOFFICE" = "y" ]; then
+echo "   Office ............: Euro-Office (https://$NEXTCLOUDDNS:8443)"
+else
+echo "   Office ............: none"
+fi
 echo "   Timezone ..........: $CURRENTTIMEZONE  (phone region: $PHONEREGION)"
 echo "   Max upload ........: $UPLOADSIZE"
 echo "   Data path .........: $NEXTCLOUDDATAPATH"
@@ -1110,6 +1119,41 @@ ${chown} -R www-data:www-data /var/www
 ###########################
 restart_all_services
 ###########################
+# Installation fail2ban   #
+###########################
+${clear}
+${echo} " » fail2ban-Installation"
+${echo} ""
+${apt} install -y fail2ban
+${cat} <<'F2BEOF' >/etc/fail2ban/filter.d/nextcloud.conf
+[Definition]
+_groupsre = (?:(?:,?\s*"\w+":(?:"[^"]+"|\w+))*)
+failregex = ^\{%(_groupsre)s,?\s*"remoteAddr":"<HOST>"%(_groupsre)s,?\s*"message":"Login failed:
+            ^\{%(_groupsre)s,?\s*"remoteAddr":"<HOST>"%(_groupsre)s,?\s*"message":"Trusted domain error.
+datepattern = ,?\s*"time"\s*:\s*"%%Y-%%m-%%d[T ]%%H:%%M:%%S(%%z)?"
+F2BEOF
+${cat} <<F2BEOF >/etc/fail2ban/jail.d/nextcloud.local
+[sshd]
+enabled  = true
+
+[nextcloud]
+enabled  = true
+backend  = auto
+port     = 80,443
+protocol = tcp
+filter   = nextcloud
+maxretry = 5
+findtime = 10h
+bantime  = 1h
+logpath  = /var/log/nextcloud/*.log
+
+[recidive]
+enabled  = true
+F2BEOF
+${sudo} -u www-data ${touch} /var/log/nextcloud/$NEXTCLOUDDNS.log
+${systemctl} enable fail2ban.service
+${systemctl} restart fail2ban.service
+###########################
 # Installation ufw        #
 ###########################
 ${clear}
@@ -1197,6 +1241,59 @@ ${sed} -i s/#\ssl/\ssl/g /etc/nginx/conf.d/nextcloud.conf
 ${systemctl} restart nginx
 fi
 ###########################
+# E: Euro-Office (Docker) #
+###########################
+if [ "$EUROOFFICE" = "y" ] && [ "$LETSENCRYPT" != "y" ]; then
+${echo} " » Euro-Office skipped: it needs a Let's Encrypt certificate (LETSENCRYPT=y)."
+EUROOFFICE="n"
+fi
+if [ "$EUROOFFICE" = "y" ]
+then
+${clear}
+${echo} " » Euro-Office-Installation (this can take a few minutes)"
+${echo} ""
+${apt} install -y docker.io
+${systemctl} enable --now docker.service
+EOSECRET=$(openssl rand -hex 32)
+docker rm -f EUROOFFICEDS >/dev/null 2>&1
+docker run -d --name EUROOFFICEDS --restart always \
+  -p 127.0.0.1:8081:80 \
+  -e JWT_ENABLED=true -e JWT_SECRET="$EOSECRET" \
+  ghcr.io/euro-office/documentserver:latest
+${cat} <<EOF >/etc/nginx/conf.d/eurooffice.conf
+server {
+    listen 8443 ssl;
+    listen [::]:8443 ssl;
+    server_name $NEXTCLOUDDNS;
+    ssl_certificate /etc/letsencrypt/rsa-certs/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/rsa-certs/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    client_max_body_size 100M;
+
+    location / {
+        proxy_pass http://127.0.0.1:8081;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host \$http_host;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_set_header X-Forwarded-Host \$http_host;
+        proxy_read_timeout 3600s;
+    }
+}
+EOF
+ufw allow 8443/tcp comment "Euro-Office"
+nginx -t && ${systemctl} reload nginx
+${echo} " » Waiting for Euro-Office to start..."
+for i in $(seq 1 60); do
+  [ "$(curl -s http://127.0.0.1:8081/healthcheck)" = "true" ] && break
+  sleep 5
+done
+${sudo} -u www-data /usr/bin/php /var/www/nextcloud/occ app:install eurooffice || ${sudo} -u www-data /usr/bin/php /var/www/nextcloud/occ app:enable eurooffice
+${sudo} -u www-data /usr/bin/php /var/www/nextcloud/occ config:app:set eurooffice DocumentServerUrl --value="https://$NEXTCLOUDDNS:8443/"
+${sudo} -u www-data /usr/bin/php /var/www/nextcloud/occ config:app:set eurooffice jwt_secret --value="$EOSECRET"
+fi
+###########################
 # System information-just #
 # for logging purposes    #
 ###########################
@@ -1236,6 +1333,11 @@ ${echo} "Passwordreset     : sudo -s"
 ${echo} "                    source /root/.bash_aliases"
 ${echo} "                    nocc user:resetpassword $NEXTCLOUDADMINUSER"
 ${echo} ""
+if [ "$EUROOFFICE" = "y" ]; then
+${echo} "Euro-Office       : https://$NEXTCLOUDDNS:8443  (Docker: EUROOFFICEDS)"
+${echo} "Euro-Office health: curl -s http://127.0.0.1:8081/healthcheck"
+${echo} ""
+fi
 ${echo} "Nextcloud datapath: $NEXTCLOUDDATAPATH"
 ${echo} ""
 ${echo} "Nextcloud DB      : $NCDBNAME"
@@ -1254,6 +1356,7 @@ ${cat} /etc/motd
 ###########################
 ${rm} -f /var/log/nextcloud/$NEXTCLOUDDNS.log
 ${sudo} -u www-data ${touch} /var/log/nextcloud/$NEXTCLOUDDNS.log
+${systemctl} restart fail2ban.service
 ###########################
 # occ Aliases (nocc)      #
 ###########################

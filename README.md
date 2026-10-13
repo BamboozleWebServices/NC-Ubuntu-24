@@ -35,13 +35,17 @@ chmod +x nextcloud-ubuntu2404.sh
 | Admin password | choice | auto-generate or type your own |
 | Region | menu | UAE / DE / AT / UK / custom (timezone + phone region) |
 | Max upload size | text | default `10G` |
+| Euro-Office | Y/n | default **yes** — Docker document server on `https://<domain>:8443` |
 
 ## Baked-in defaults (no longer prompted)
 
 - **PHP 8.4**
 - **MariaDB**
 - **Let's Encrypt** (auto-renewing)
-- No office suite installed (community OnlyOffice is unsupported on Nextcloud 33)
+- **Euro-Office** (optional, default on): `ghcr.io/euro-office/documentserver` in Docker on `127.0.0.1:8081`,
+  proxied by nginx on port **8443** with the Let's Encrypt cert, random JWT secret, `eurooffice` app configured
+- **fail2ban** with `sshd`, `nextcloud` and `recidive` jails (CrowdSec removed)
+- PHP-FPM workers and MariaDB buffer pool sized to the server's RAM; MariaDB binary log off
 - Data path `/nc_data`, Nextcloud `latest`, DB name/user `nextcloud`
 - DB / MariaDB-root / Redis passwords — auto-generated
 
